@@ -1,20 +1,37 @@
 # Blueprint CI/CD cho RAG và guardrails
 
-Nhóm: {{Tên nhóm}}
+Nhóm: Sydneyboy
 
-Người phụ trách: {{Họ tên và MSSV}}
+Người phụ trách: Nguyễn Anh Trí — 2A202602730
 
 Đây là **đề xuất CI/CD**, không phải workflow đã được triển khai/chạy.
 Nguồn kết quả: artifacts/ragas_50q.json, judge_results.json, guard_results.json.
-Run timestamp: {{created_at}}; guard models: {{metadata.models.guard}}.
-Models generation/evaluator/judge từ A/B: {{models theo từng vai trò và nguồn report}}.
+Run timestamp: 2026-10-12T10:35:46Z; guard models: `gpt-4o-mini` (NeMo Guardrails 0.10 self-check, temperature 0).
+Models generation/evaluator/judge từ A/B: generation `gpt-4o-mini-2024-07-18` (ragas_50q.json và
+judge_results.json); evaluator `gpt-4o-mini` + `text-embedding-3-small` (ragas_50q.json, run
+2026-10-12T10:20:28Z); judge `gpt-4o-mini` (judge_results.json, run 2026-10-12T10:18:49Z).
 
 ## Kiến trúc và failure action
 
 Input → Presidio → NeMo input → RAG → NeMo output → response.
 Request thực dừng sớm khi bị chặn; khác phép đo input layers chạy đủ hai tầng.
 
-{{Mô tả data flow, failure action, log/redact, nơi giữ secrets và điều kiện fallback.}}
+| Tầng | Kiểm tra | Khi phát hiện | Log |
+|---|---|---|---|
+| Presidio (`pii_scan`) | VN_CCCD, VN_PHONE, EMAIL_ADDRESS, PHONE_NUMBER, CREDIT_CARD, IBAN_CODE, score ≥0.4 | Dừng request, trả lời từ chối, không gọi LLM nào | Chỉ log loại entity + vị trí span và text đã redact, không log giá trị gốc |
+| NeMo input (`check_input_rail`) | self_check_input: off-topic, jailbreak, giả danh vai trò, trích xuất prompt/context, dữ liệu cá nhân người khác, credential thật | Dừng request, trả refusal của rail | Log `activated_rails[*].stop` và tên rail |
+| RAG (m1–m5) | Hybrid search → rerank top-3 → gpt-4o-mini | Không có context đủ → nói rõ phần thiếu | Log question_id, ids chunk, latency |
+| NeMo output (`check_output_rail`) | self_check_output: lộ PII, mật khẩu, thông tin nội bộ bí mật | Thay answer bằng refusal; answer an toàn giữ nguyên | Log `flagged_reason = nemo_output_rail`, không log answer gốc bị chặn |
+
+Quyết định block lấy từ `result.log.activated_rails[*].stop` của NeMo, không đoán theo chữ "xin lỗi".
+Output case thật: #201 và #202 (an toàn, có email helpdesk công khai) được giữ nguyên; #203 (lộ số CCCD)
+và #204 (lộ mật khẩu admin) bị thay bằng refusal — 4/4 đúng.
+
+Secrets: `OPENAI_API_KEY` chỉ nằm trong `.env` (đã gitignore) ở local; trong CI đề xuất lưu ở
+repository secret và inject qua env, không in ra log. Fallback: nếu NeMo/OpenAI lỗi hoặc timeout, input
+rail **fail-closed** (từ chối kèm thông báo thử lại) thay vì cho qua; Presidio chạy local nên vẫn chặn
+được PII khi API lỗi. Fallback generation `extractive_fallback` (trả chunk đầu, không LLM) chỉ dùng cho dev, và
+artifact ghi rõ `generation_mode` từng câu để không lẫn với run live (run này 50/50 là `llm`).
 
 ## Phạm vi và số đo latency
 
