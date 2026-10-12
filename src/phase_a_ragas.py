@@ -108,18 +108,22 @@ def save_phase_a_report(results: list[RagasResult], clusters: dict, bottom: list
 
 # ─── Tasks 1-4: Sinh viên implement ──────────────────────────────────────────
 
+DISTRIBUTIONS = ("factual", "multi_hop", "adversarial")
+
+
 def group_by_distribution(test_set: list[dict]) -> dict[str, list[dict]]:
     """Task 1: Nhóm 50 câu hỏi theo 3 distributions.
 
     Returns:
         {"factual": [...], "multi_hop": [...], "adversarial": [...]}
     """
-    # TODO: Implement
-    # groups = {"factual": [], "multi_hop": [], "adversarial": []}
-    # for item in test_set:
-    #     groups[item["distribution"]].append(item)
-    # return groups
-    return {"factual": [], "multi_hop": [], "adversarial": []}
+    groups: dict[str, list[dict]] = {d: [] for d in DISTRIBUTIONS}
+    for item in test_set:
+        dist = item.get("distribution")
+        if dist not in groups:
+            raise ValueError(f"Question {item.get('id')}: unknown distribution {dist!r}")
+        groups[dist].append(item)
+    return groups
 
 
 def run_ragas_50q(answers: list[dict]) -> RagasEvaluation:
