@@ -110,6 +110,13 @@ def save_phase_a_report(results: list[RagasResult], clusters: dict, bottom: list
 
 DISTRIBUTIONS = ("factual", "multi_hop", "adversarial")
 
+# Gợi ý bổ sung theo distribution: cùng một worst_metric nhưng nguyên nhân gốc khác nhau.
+DISTRIBUTION_HINTS = {
+    "factual": "câu một tài liệu — kiểm tra chunk chứa con số có lọt top-3 không",
+    "multi_hop": "cần ghép ≥2 tài liệu — top-3 sau rerank dễ thiếu một nửa thông tin",
+    "adversarial": "bẫy phiên bản/phủ định — kiểm tra context có lẫn chính sách cũ (v2023, v1)",
+}
+
 
 def group_by_distribution(test_set: list[dict]) -> dict[str, list[dict]]:
     """Task 1: Nhóm 50 câu hỏi theo 3 distributions.
@@ -180,24 +187,24 @@ def bottom_10(results: list[RagasResult]) -> list[dict]:
           "question": ..., "avg_score": ..., "worst_metric": ...,
           "diagnosis": ..., "suggested_fix": ...}, ...]
     """
-    # TODO: Implement
-    # sorted_asc = sorted(results, key=lambda r: r.avg_score)
-    # bottom = sorted_asc[:10]
-    # output = []
-    # for i, r in enumerate(bottom):
-    #     diag, fix = DIAGNOSTIC_TREE[r.worst_metric]
-    #     output.append({
-    #         "rank": i + 1,
-    #         "question_id": r.question_id,
-    #         "distribution": r.distribution,
-    #         "question": r.question,
-    #         "avg_score": round(r.avg_score, 4),
-    #         "worst_metric": r.worst_metric,
-    #         "diagnosis": diag,
-    #         "suggested_fix": fix,
-    #     })
-    # return output
-    return []
+    # Tie-break theo question_id để thứ tự ổn định giữa các lần chạy.
+    ranked = sorted(results, key=lambda r: (r.avg_score, r.question_id))[:10]
+    rows = []
+    for rank, r in enumerate(ranked, start=1):
+        diagnosis, fix = DIAGNOSTIC_TREE[r.worst_metric]
+        worst_value = getattr(r, r.worst_metric)
+        rows.append({
+            "rank": rank,
+            "question_id": r.question_id,
+            "distribution": r.distribution,
+            "question": r.question,
+            "avg_score": round(r.avg_score, 4),
+            "worst_metric": r.worst_metric,
+            "diagnosis": f"{diagnosis} ({r.worst_metric}={worst_value:.2f}; "
+                         f"{DISTRIBUTION_HINTS.get(r.distribution, r.distribution)})",
+            "suggested_fix": fix,
+        })
+    return rows
 
 
 def cluster_analysis(results: list[RagasResult]) -> dict:
