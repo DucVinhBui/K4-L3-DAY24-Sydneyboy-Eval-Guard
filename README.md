@@ -1,13 +1,13 @@
 # K4 Track 3B — Production Eval + Guardrail Stack (Day 24)
 
-Bài nhóm đánh giá pipeline RAG chính sách nhân sự (Day 18), kiểm tra độ tin cậy
+Nhóm **Sydneyboy** đánh giá pipeline RAG chính sách nhân sự (Day 18), kiểm tra độ tin cậy
 của LLM Judge và xây guardrail cho input/output.
 
 | Thành viên | GitHub | Phụ trách |
 |---|---|---|
 | Bùi Đức Vinh (trưởng nhóm) | [@VinhBuii](https://github.com/VinhBuii) | Tích hợp m1–m5, sinh 50 answers, Phase A, README |
-| {{Họ tên huwungG}} | [@huwungG](https://github.com/huwungG) | Phase B: pairwise judge, swap, κ, bias report |
-| {{Họ tên anhtri04}} | [@anhtri04](https://github.com/anhtri04) | Phase C: Presidio, NeMo rails, latency, blueprint |
+| Đỗ Phúc Hưng | [@huwungG](https://github.com/huwungG) | Phase B: pairwise judge, swap, κ, bias report |
+| Nguyễn Anh Trí | [@anhtri04](https://github.com/anhtri04) | Phase C: Presidio, NeMo rails, latency, blueprint |
 
 Chi tiết đóng góp từng người: [doc/TEAM.md](doc/TEAM.md). Đề bài gốc:
 [doc/ASSIGNMENT.md](doc/ASSIGNMENT.md), rubric: [doc/RUBRIC.md](doc/RUBRIC.md).
@@ -83,5 +83,33 @@ python scripts/check_lab.py
 
 ## Kết quả
 
-Chưa có — các artifact được sinh khi chạy thực nghiệm thật ở trên; số liệu sẽ
-được cập nhật ở đây và trong `doc/reports/` từ `artifacts/*.json`.
+Run live ngày 2026-10-12, mọi model là `gpt-4o-mini` (generation `gpt-4o-mini-2024-07-18`,
+embedding RAGAS `text-embedding-3-small`). Số liệu đọc từ `artifacts/*.json`; phân tích chi tiết
+trong `doc/reports/`.
+
+**Phase A — RAGAS 50 câu** ([failure_clusters.md](doc/reports/failure_clusters.md))
+
+| Distribution | faithfulness | answer_relevancy | context_precision | context_recall | avg |
+|---|---|---|---|---|---|
+| factual (20) | 0.812 | 0.489 | 0.950 | 0.800 | 0.763 |
+| multi_hop (20) | 0.489 | 0.402 | 0.929 | 0.767 | 0.647 |
+| adversarial (10) | 0.900 | 0.526 | 0.900 | 0.683 | 0.752 |
+
+Nhóm yếu nhất là multi_hop; worst metric phổ biến nhất là answer_relevancy (27/50 câu). Phát hiện chính:
+8/50 answer là "Không tìm thấy." dù retrieval thường đúng (q9 có context_recall 1.0) — lỗi từ chối quá mức
+do system prompt generation, không phải hallucination.
+
+**Phase B — LLM judge** ([bias_report.md](doc/reports/bias_report.md)): 5 cặp swap-and-average, position bias
+2/5 (q5, q12 thành tie), verbosity 0.667 trên 3 case decisive (winner dài hơn cũng là answer đúng hơn).
+Cohen's κ = 1.0 trên 10 nhãn human (p_o = 1.00, p_e = 0.52).
+
+**Phase C — Guardrails** ([blueprint.md](doc/reports/blueprint.md)): attacks 20/20 (Presidio chặn 4,
+NeMo input chặn 16), clean 8/8 (FPR 0.0), output rail 4/4. Latency input layers (20 mẫu, 2 warm-up):
+
+| Layer | P50 ms | P95 ms | P99 ms |
+|---|---|---|---|
+| Presidio | 9.04 | 10.95 | 11.25 |
+| NeMo input | 727.12 | 885.09 | 959.05 |
+| Input guard sequential | 736.42 | 893.53 | 967.98 |
+
+Input guard P95 vượt target 500ms (`latency_budget_ok = false`); bottleneck là lượt gọi LLM của NeMo.
