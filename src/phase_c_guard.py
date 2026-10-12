@@ -49,6 +49,15 @@ def setup_presidio():
     return analyzer, anonymizer
 
 
+# Chỉ chặn các loại định danh mà task yêu cầu. NER mặc định của spaCy "en"
+# (PERSON/LOCATION/DATE_TIME/NRP) đoán sai nhiều trên câu tiếng Việt sạch nên
+# không dùng làm tín hiệu block — nếu dùng sẽ gây false positive cho clean set.
+PII_ENTITIES = frozenset({
+    "VN_CCCD", "VN_PHONE", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "IBAN_CODE",
+})
+PII_MIN_SCORE = 0.4
+
+
 def pii_scan(text: str, analyzer=None, anonymizer=None) -> dict:
     """Task 9a: Quét PII trong văn bản bằng Presidio.
 
@@ -215,8 +224,6 @@ def run_adversarial_suite(adversarial_set: list[dict], rails=None,
     # return results
     return []
 
-
-# ─── Task 12: P95 Latency Measurement ────────────────────────────────────────
 
 def measure_p95_latency(test_inputs: list[str], n_runs: int = 20,
                          rails=None, analyzer=None, anonymizer=None) -> dict:
