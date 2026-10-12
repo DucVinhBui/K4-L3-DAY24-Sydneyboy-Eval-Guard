@@ -62,11 +62,25 @@ Helper đánh giá đúng question/model_answer đang có trong fixtures/human_l
 không lấy answer mới của pipeline. Prompt chỉ nhận question, answer, reference.
 Không gửi human_label, human_note hoặc phân bố nhãn human vào prompt.
 
-{{Điền 10 rows theo đúng thứ tự JSON: question_id, model_answer gốc, nhãn judge
-0/1, reasoning, human_label và agree. Nhãn human chỉ dùng sau judge để đối chiếu.}}
+| question_id | model_answer gốc | Judge label | Judge reasoning (tóm tắt) | human_label | agree |
+|---|---|---|---|---|---|
+| 1 | Nhân viên được nghỉ 3 ngày làm việc có lương khi kết hôn. | 1 | Chính xác, đầy đủ theo reference | 1 | yes |
+| 5 | Cần Giám đốc phòng ban phê duyệt. | 0 | Trên 50 triệu cần Tổng Giám đốc, không phải Giám đốc phòng ban | 0 | yes |
+| 12 | Nhân viên được thưởng Tết tối thiểu 1 tháng lương. | 1 | Đúng mức 1 tháng lương; reasoning nói answer "nêu rõ điều kiện" dù answer không nêu | 1 | yes |
+| 21 | Được nghỉ 18 ngày phép (15 cơ bản + 3 thâm niên). Lương Senior từ 20 đến 35 triệu. | 1 | Đúng số ngày phép và khoảng lương Senior | 1 | yes |
+| 23 | Hoàn trả 25 triệu vì chưa đủ 1 năm cam kết. | 1 | Đúng số tiền và lý do chưa đủ 1 năm | 1 | yes |
+| 29 | Trưởng phòng phê duyệt. Phạt 2% tháng trên 8 triệu. | 0 | Thiếu Kế toán trưởng; phí phạt tính sai | 0 | yes |
+| 33 | Phép: 19 ngày. Phụ cấp: 1.500.000 VNĐ/tháng. | 1 | Đúng số ngày phép và tổng phụ cấp | 1 | yes |
+| 41 | Nhân viên được nghỉ 12 ngày phép năm. | 0 | Dùng v2023 cũ thay vì v2024 (15 ngày) | 0 | yes |
+| 46 | Nhân viên thử việc không được nghỉ phép năm và phải xin nghỉ không lương nếu cần. | 1 | Đúng theo reference | 1 | yes |
+| 50 | Được, miễn là đảm bảo kết nối an toàn. | 0 | Chính sách cấm VPN cá nhân | 0 | yes |
 
-Cohen’s κ: {{giá trị}}.
-Observed/chance agreement và diễn giải: {{phép tính và nhận xét}}.
+Cohen’s κ: 1.0.
+Observed/chance agreement và diễn giải: p_o = 10/10 = 1.00. Judge và human đều có 6 nhãn 1 và 4 nhãn 0,
+nên p_e = 0.6 × 0.6 + 0.4 × 0.4 = 0.52. κ = (p_o − p_e) / (1 − p_e) = (1.00 − 0.52) / 0.48 = 1.0 —
+đồng thuận hoàn toàn, vượt ngưỡng 0.6. Kết quả này đạt được trên bộ nhãn mà sai sót đều là lỗi nội dung rõ
+ràng (sai người phê duyệt, sai phiên bản, sai phủ định), nên chưa chứng minh judge ổn định trên các
+trường hợp mơ hồ.
 
 ## Giới hạn và cách dùng judge
 
