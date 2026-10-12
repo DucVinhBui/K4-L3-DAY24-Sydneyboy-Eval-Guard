@@ -176,59 +176,44 @@ async def check_output_rail(question: str, answer: str, rails=None) -> dict:
 
 def run_adversarial_suite(adversarial_set: list[dict], rails=None,
                            analyzer=None, anonymizer=None) -> list[dict]:
-    """Task 10: Chạy 20 adversarial inputs qua full guard stack, so sánh với expected.
+    """Task 10: Chạy inputs qua full input guard stack, so sánh với expected.
 
-    Guard stack order:
-        1. pii_scan()         → block nếu has_pii (cho category pii_injection)
+    Guard stack order (giống request thật, dừng sớm khi đã bị chặn):
+        1. pii_scan()         → block nếu has_pii
         2. check_input_rail() → block nếu jailbreak / off-topic / prompt injection
-
-    Returns:
-        list of {
-          "id": int, "category": str, "input": str,
-          "expected": "blocked"|"allowed",
-          "actual":   "blocked"|"allowed",
-          "blocked_by": str | None,       # "presidio" | "nemo_input" | None
-          "passed": bool,
-        }
+    `expected` chỉ dùng để chấm passed, không ảnh hưởng quyết định actual.
     """
-    # TODO: Implement
-    # if analyzer is None or anonymizer is None:
-    #     analyzer, anonymizer = setup_presidio()
-    # if rails is None:
-    #     rails = setup_nemo_rails()
-    # async def _run_all():
-    #     results = []
-    #     for item in adversarial_set:
-    #         blocked_by = None
-    #
-    #         # Layer 1: Presidio PII (synchronous, fast)
-    #         pii_result = pii_scan(item["input"], analyzer, anonymizer)
-    #         if pii_result["has_pii"]:
-    #             blocked_by = "presidio"
-    #
-    #         # Layer 2: NeMo input rail (async — await, không dùng asyncio.run())
-    #         if blocked_by is None:
-    #             rail_result = await check_input_rail(item["input"], rails)
-    #             if not rail_result["allowed"]:
-    #                 blocked_by = "nemo_input"
-    #
-    #         actual = "blocked" if blocked_by else "allowed"
-    #         results.append({
-    #             "id":         item["id"],
-    #             "category":   item["category"],
-    #             "input":      item["input"],
-    #             "expected":   item["expected"],
-    #             "actual":     actual,
-    #             "blocked_by": blocked_by,
-    #             "passed":     actual == item["expected"],
-    #         })
-    #     return results
-    #
-    # results = asyncio.run(_run_all())   # một lần duy nhất — không gọi asyncio.run() trong loop
-    # passed = sum(1 for r in results if r["passed"])
-    # print(f"Adversarial suite: {passed}/{len(results)} passed")
-    # return results
-    return []
+    if analyzer is None or anonymizer is None:
+        analyzer, anonymizer = setup_presidio()
+    if rails is None:
+        rails = setup_nemo_rails()
+
+    async def _run_all() -> list[dict]:
+        rows = []
+        for item in adversarial_set:
+            blocked_by = None
+            if pii_scan(item["input"], analyzer, anonymizer)["has_pii"]:
+                blocked_by = "presidio"
+            else:
+                rail = await check_input_rail(item["input"], rails)
+                if not rail["allowed"]:
+                    blocked_by = "nemo_input"
+            actual = "blocked" if blocked_by else "allowed"
+            rows.append({
+                "id": item["id"],
+                "category": item["category"],
+                "input": item["input"],
+                "expected": item["expected"],
+                "actual": actual,
+                "blocked_by": blocked_by,
+                "passed": actual == item["expected"],
+            })
+        return rows
+
+    rows = asyncio.run(_run_all())  # một event loop cho cả batch
+    passed = sum(r["passed"] for r in rows)
+    print(f"Input guard suite: {passed}/{len(rows)} passed")
+    return rows
 
 
 def measure_p95_latency(test_inputs: list[str], n_runs: int = 20,
