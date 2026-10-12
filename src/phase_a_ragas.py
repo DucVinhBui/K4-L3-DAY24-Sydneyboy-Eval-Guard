@@ -213,45 +213,41 @@ def cluster_analysis(results: list[RagasResult]) -> dict:
     Matrix thống kê worst_metric của mọi câu, không coi mọi câu là một failure.
     Nhóm yếu nhất = distribution có avg_score trung bình thấp nhất (bỏ nhóm rỗng).
     Tổng matrix theo cột chỉ là kích thước nhóm 20/20/10, không đo chất lượng.
-
-    Returns:
-        {
-          "matrix": {
-            "faithfulness":      {"factual": 3, "multi_hop": 5, "adversarial": 2},
-            "answer_relevancy":  {...},
-            "context_precision": {...},
-            "context_recall":    {...},
-          },
-          "dominant_failure_distribution": "multi_hop",
-          "dominant_failure_metric": "context_recall",
-          "insight": "..."
-        }
     """
-    # TODO: Implement
-    # matrix = {
-    #     metric: {"factual": 0, "multi_hop": 0, "adversarial": 0}
-    #     for metric in DIAGNOSTIC_TREE
-    # }
-    # for r in results:
-    #     matrix[r.worst_metric][r.distribution] += 1
-    #
-    # # Find dominant failure
-    # means = {
-    #     d: sum(r.avg_score for r in results if r.distribution == d) /
-    #        sum(r.distribution == d for r in results)
-    #     for d in ("factual", "multi_hop", "adversarial")
-    #     if any(r.distribution == d for r in results)
-    # }
-    # dominant_dist = min(means, key=means.get)  # lowest quality, NOT largest group
-    # dominant_metric = max(matrix, key=lambda m: sum(matrix[m].values()))
-    # insight = (f"Distribution '{dominant_dist}' có điểm trung bình thấp nhất. "
-    #            f"Metric '{dominant_metric}' là điểm yếu chủ đạo. "
-    #            f"Gợi ý: {DIAGNOSTIC_TREE[dominant_metric][1]}")
-    #
-    # return {"matrix": matrix, "distribution_avg_scores": means,
-    #         "dominant_failure_distribution": dominant_dist,
-    #         "dominant_failure_metric": dominant_metric, "insight": insight}
-    return {}
+    matrix = {metric: {d: 0 for d in DISTRIBUTIONS} for metric in DIAGNOSTIC_TREE}
+    for r in results:
+        matrix[r.worst_metric][r.distribution] += 1
+
+    means: dict[str, float] = {}
+    for d in DISTRIBUTIONS:
+        subset = [r.avg_score for r in results if r.distribution == d]
+        if subset:  # nhóm rỗng bị bỏ, không gán 0
+            means[d] = sum(subset) / len(subset)
+    if not means:
+        return {"matrix": matrix, "distribution_avg_scores": {},
+                "dominant_failure_distribution": None, "dominant_failure_metric": None,
+                "insight": "Không có kết quả để phân tích."}
+
+    dominant_dist = min(means, key=means.get)  # chất lượng thấp nhất, KHÔNG phải nhóm lớn nhất
+    metric_totals = {m: sum(row.values()) for m, row in matrix.items()}
+    dominant_metric = max(metric_totals, key=metric_totals.get)
+    in_weakest = max(matrix, key=lambda m: matrix[m][dominant_dist])
+
+    ranking = ", ".join(f"{d}={means[d]:.3f}" for d in sorted(means, key=means.get))
+    insight = (
+        f"Mean avg_score theo distribution: {ranking}. "
+        f"'{dominant_dist}' yếu nhất; trong nhóm này worst_metric hay gặp nhất là "
+        f"'{in_weakest}' ({matrix[in_weakest][dominant_dist]} câu). "
+        f"Toàn bộ 50 câu: '{dominant_metric}' là worst_metric của {metric_totals[dominant_metric]} câu "
+        f"→ {DIAGNOSTIC_TREE[dominant_metric][0]}. Gợi ý: {DIAGNOSTIC_TREE[dominant_metric][1]}."
+    )
+    return {
+        "matrix": matrix,
+        "distribution_avg_scores": {d: round(v, 4) for d, v in means.items()},
+        "dominant_failure_distribution": dominant_dist,
+        "dominant_failure_metric": dominant_metric,
+        "insight": insight,
+    }
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
