@@ -77,6 +77,24 @@ gọi gpt-4o-mini), không chỉ pip resolve: bằng chứng là `artifacts/guar
 - Nguồn/AI hỗ trợ nếu có: dùng Claude Code (Anthropic) trên workspace chung để hỗ trợ viết code và báo cáo; tự kiểm
   chứng bằng cách đọc lại reasoning hai lượt của từng cặp và tính lại κ bằng tay (p_o = 1.00, p_e = 0.52).
 
+### NguyenAnhTri-2A202602730
+
+- Phần được giao và phần thực tế đã làm: Phase C trong `src/phase_c_guard.py` — `pii_scan` (Presidio với recognizer
+  VN_CCCD/VN_PHONE, chỉ chặn loại định danh, score ≥0.4), `check_input_rail`/`check_output_rail` đọc quyết định từ
+  `activated_rails[*].stop`, `run_adversarial_suite`, `measure_p95_latency` (2 warm-up, percentile tuyến tính); chỉnh
+  prompt self-check trong `guardrails/config.yml`; viết `doc/reports/blueprint.md`.
+- Bằng chứng: commits của @anhtri04 (feat(phase-c) Tasks 9a–12, fix(guardrails), data(phase-c), docs(blueprint));
+  `artifacts/guard_results.json`.
+- Cách kiểm tra: unit mock `python -m pytest tests/ -q`; live `python scripts/run_experiments.py --phase c --live --latency-samples 20`
+  (run 2026-10-12T10:35:46Z): attacks 20/20 (Presidio chặn 4), clean 8/8 (FPR 0.0), output 4/4, input guard P95 893.53ms.
+- Điều đã học: guardrail LLM cần đo cả hai chiều — run 1 chặn 18/20 nhưng chặn nhầm câu hỏi hợp lệ #107 về quy định
+  mật khẩu; sửa prompt (phân biệt hỏi *quy định* với xin *mật khẩu thật*, temperature 0) đạt 20/20 và 8/8. NER tiếng Anh
+  của spaCy gắn PERSON/LOCATION sai trên tiếng Việt nên chỉ chặn entity định danh.
+- Giới hạn/cách xử lý: input guard P95 893.53ms vượt target 500ms do NeMo gọi LLM (`latency_budget_ok = false`); RAG,
+  output rail và full guard chưa đo. Bộ 20/8/4 nhỏ. Hướng giảm latency và kế hoạch đo full guard ghi trong blueprint.md.
+- Nguồn/AI hỗ trợ nếu có: dùng Claude Code (Anthropic) trên workspace chung để hỗ trợ viết code và báo cáo; tự kiểm
+  chứng bằng cách chạy lại suite sau mỗi lần sửa prompt và so sánh run 1/run 2 theo từng id.
+
 ## Cập nhật sau khi nộp
 
 {{Ghi phiên bản nộp; nếu sửa sau deadline, ghi commit/thời điểm/lý do và thông báo
