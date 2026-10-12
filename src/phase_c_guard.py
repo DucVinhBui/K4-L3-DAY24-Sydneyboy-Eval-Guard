@@ -125,23 +125,18 @@ async def check_input_rail(text: str, rails=None) -> dict:
           "response":       str,          # NeMo's raw response
         }
     """
-    # TODO: Implement
-    # if rails is None:
-    #     rails = setup_nemo_rails()
-    #
-    # result = await rails.generate_async(
-    #     messages=[{"role": "user", "content": text}],
-    #     options={"rails": ["input"], "log": {"activated_rails": True}},
-    # )
-    # response = result.response[0]["content"]
-    # # Đọc quyết định rail; không suy ra blocked từ từ khóa có thể nằm trong input sạch.
-    # blocked = any(rail.stop for rail in result.log.activated_rails)
-    # return {
-    #     "allowed":        not blocked,
-    #     "blocked_reason": "nemo_input_rail" if blocked else None,
-    #     "response":       response,
-    # }
-    return {"allowed": True, "blocked_reason": None, "response": ""}
+    if rails is None:
+        rails = setup_nemo_rails()
+    result = await rails.generate_async(
+        messages=[{"role": "user", "content": text}],
+        options={"rails": ["input"], "log": {"activated_rails": True}},
+    )
+    blocked = _rail_stopped(result)
+    return {
+        "allowed": not blocked,
+        "blocked_reason": "nemo_input_rail" if blocked else None,
+        "response": _response_text(result),
+    }
 
 
 async def check_output_rail(question: str, answer: str, rails=None) -> dict:
