@@ -105,48 +105,36 @@ def pairwise_judge(question: str, answer_a: str, answer_b: str, reference: str =
     return _parse_pairwise(resp.choices[0].message.content)
 
 
+# ─── Task 6: Swap-and-Average ─────────────────────────────────────────────────
+
+_SWAP = {"A": "B", "B": "A", "tie": "tie"}
+
+
 def swap_and_average(question: str, answer_a: str, answer_b: str, reference: str = "") -> JudgeResult:
     """Task 6: Chạy pairwise 2 lần (hoán đổi thứ tự), lấy kết quả nhất quán.
 
     Lý do: LLM thường có position bias (ưu tiên answer xuất hiện trước).
     Bằng cách swap, ta phát hiện và giảm bias này.
 
-    Logic:
-        Pass 1: judge(q, A, B) → winner_1 (trong không gian A/B)
-        Pass 2: judge(q, B, A) → winner_2_raw (trong không gian B/A)
-        Convert: nếu winner_2_raw="A" thì thực ra là B (vì đã swap)
-        Final:   nếu winner_1 == winner_2 → final = winner_1
-                 nếu khác nhau → final = "tie"
+    Pass 2 nhận (B, A); winner/scores được quy về không gian A/B ban đầu.
+    Final = winner chung nếu hai lượt đồng ý, ngược lại "tie".
     """
-    # TODO: Implement
-    # pass1 = pairwise_judge(question, answer_a, answer_b, reference=reference)
-    # pass2_raw = pairwise_judge(question, answer_b, answer_a, reference=reference)  # SWAP!
-    #
-    # # Convert pass2 back to original A/B space
-    # swap_map = {"A": "B", "B": "A", "tie": "tie"}
-    # winner_pass2 = swap_map[pass2_raw["winner"]]
-    #
-    # # Average: consensus only if both agree
-    # if pass1["winner"] == winner_pass2:
-    #     final = pass1["winner"]
-    # else:
-    #     final = "tie"  # disagreement = inconclusive
-    #
-    # position_consistent = (pass1["winner"] == winner_pass2)
-    #
-    # return JudgeResult(
-    #     question=question, answer_a=answer_a, answer_b=answer_b,
-    #     winner_pass1=pass1["winner"], winner_pass2=winner_pass2,
-    #     final_winner=final,
-    #     reasoning_pass1=pass1["reasoning"], reasoning_pass2=pass2_raw["reasoning"],
-    #     position_consistent=position_consistent,
-    #     scores_pass1=pass1["scores"],
-    #     scores_pass2={"A": pass2_raw["scores"]["B"], "B": pass2_raw["scores"]["A"]},
-    # )
+    pass1 = pairwise_judge(question, answer_a, answer_b, reference=reference)
+    pass2_raw = pairwise_judge(question, answer_b, answer_a, reference=reference)  # swapped
+
+    winner_pass1 = pass1["winner"]
+    winner_pass2 = _SWAP[pass2_raw["winner"]]
+    consistent = winner_pass1 == winner_pass2
+
     return JudgeResult(
         question=question, answer_a=answer_a, answer_b=answer_b,
-        winner_pass1="tie", winner_pass2="tie", final_winner="tie",
-        reasoning_pass1="", reasoning_pass2="", position_consistent=True,
+        winner_pass1=winner_pass1, winner_pass2=winner_pass2,
+        final_winner=winner_pass1 if consistent else "tie",
+        reasoning_pass1=pass1["reasoning"], reasoning_pass2=pass2_raw["reasoning"],
+        position_consistent=consistent,
+        scores_pass1=dict(pass1["scores"]),
+        # In pass 2 slot "A" held the original B answer and vice versa.
+        scores_pass2={"A": pass2_raw["scores"]["B"], "B": pass2_raw["scores"]["A"]},
     )
 
 
