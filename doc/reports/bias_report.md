@@ -84,5 +84,19 @@ trường hợp mơ hồ.
 
 ## Giới hạn và cách dùng judge
 
-{{Nêu model/prompt, số cặp và số nhãn nhỏ; diễn giải nếu κ chưa đạt >0.6.
-Nêu case lệch với human, cách kiểm chứng, và việc không xem judge là đáp án tuyệt đối.}}
+- **Mẫu nhỏ:** 5 cặp pairwise và 10 nhãn nhị phân. Position bias 0.40 có khoảng tin cậy rất rộng (1 cặp
+  thay đổi là chênh 0.20); κ = 1.0 trên 10 nhãn không loại trừ khả năng lệch trên bộ lớn hơn.
+- **Cùng họ model:** judge `gpt-4o-mini` cũng là model sinh answer A, nên có thể ưu ái cách diễn đạt của
+  chính nó. Chưa thử judge khác họ (ví dụ Claude) để so sánh.
+- **Prompt:** đã nói rõ "độ dài và vị trí không phải tiêu chí" và xếp độ chính xác so với reference lên
+  đầu, nhưng q5 vẫn đổi winner theo vị trí. Prompt chưa có hướng dẫn cho trường hợp cả hai đều sai; đề xuất
+  thêm quy tắc "nếu cả hai sai thông tin cốt lõi → tie" và đo lại position bias.
+- **Reasoning không luôn trung thực với answer:** q12 nhãn đúng nhưng reasoning nói answer "nêu rõ điều
+  kiện ≥6 tháng", trong khi model_answer không nhắc điều kiện này. Nhãn đúng không đảm bảo lý do đúng,
+  nên reasoning chỉ dùng để gợi ý, không làm bằng chứng.
+- **Không có case lệch nhãn với human trong run này,** nên chưa phân tích được kiểu lỗi nhãn của judge. Cách kiểm chứng
+  tiếp: thêm 20–30 nhãn human vào các câu mơ hồ (đáp án đúng một phần như q21/q30 của Phase A), chạy lại
+  `python scripts/run_experiments.py --phase b --live` và theo dõi κ cùng position bias.
+- **Cách dùng:** judge chỉ dùng như tín hiệu xếp hạng có swap bắt buộc; mọi cặp không nhất quán coi là tie;
+  không dùng judge một lượt hoặc judge không có reference làm đáp án tuyệt đối, và lấy mẫu kiểm tra human
+  định kỳ trước khi dùng điểm judge làm CI gate.
