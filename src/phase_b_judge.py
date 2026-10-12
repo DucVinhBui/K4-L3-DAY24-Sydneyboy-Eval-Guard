@@ -58,6 +58,25 @@ Trả về JSON đúng dạng:
   "scores": {{"A": số thực 0.0-1.0, "B": số thực 0.0-1.0}}}}"""
 
 
+def _parse_pairwise(content: str) -> dict:
+    data = json.loads(content)
+    winner = str(data.get("winner", "")).strip()
+    winner = {"a": "A", "b": "B", "tie": "tie"}.get(winner.lower())
+    if winner is None:
+        raise ValueError(f"Invalid winner in judge output: {data.get('winner')!r}")
+    reasoning = data.get("reasoning")
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        raise ValueError("Judge must return non-empty reasoning")
+    raw_scores = data.get("scores") or {}
+    scores = {}
+    for key in ("A", "B"):
+        value = float(raw_scores[key])
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(f"Score {key}={value} outside [0, 1]")
+        scores[key] = value
+    return {"winner": winner, "reasoning": reasoning.strip(), "scores": scores}
+
+
 def pairwise_judge(question: str, answer_a: str, answer_b: str, reference: str = "") -> dict:
     """Task 5: Gọi LLM để chọn answer tốt hơn (A hoặc B) theo 3 tiêu chí.
 
