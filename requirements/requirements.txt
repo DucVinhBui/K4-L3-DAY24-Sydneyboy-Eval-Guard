@@ -10,6 +10,7 @@ ragas>=0.1.10,<0.2
 langchain-community>=0.2,<0.3
 langchain-openai>=0.1,<0.2
 datasets>=2.19,<3
+pyarrow<18                       # pyarrow>=18 cần NumPy 2; constraints pin numpy==1.26.4
 openai>=1.30,<2
 numpy>=1.26,<2
 
