@@ -1,133 +1,87 @@
-# K4 Track 3B — Production Eval + Guardrail Stack
+# K4 Track 3B — Production Eval + Guardrail Stack (Day 24)
 
-**Bài nhóm: mỗi nhóm dùng và nộp một repo chung của trưởng nhóm.**
-Mỗi người khai phần thực tế đã làm trong [doc/TEAM.md](doc/TEAM.md).
+Bài nhóm đánh giá pipeline RAG chính sách nhân sự (Day 18), kiểm tra độ tin cậy
+của LLM Judge và xây guardrail cho input/output.
 
-**Thời lượng trên lớp:** 15 phút kiểm tra sẵn sàng + 90 phút thực hành
-(Phase A/B/C, mỗi phase 30 phút). Cài dependencies, build tools, tải model,
-indexing và sinh 50 answers được làm **trước buổi học**, không gộp vào 15 phút.
+| Thành viên | GitHub | Phụ trách |
+|---|---|---|
+| Bùi Đức Vinh (trưởng nhóm) | [@VinhBuii](https://github.com/VinhBuii) | Tích hợp m1–m5, sinh 50 answers, Phase A, README |
+| {{Họ tên huwungG}} | [@huwungG](https://github.com/huwungG) | Phase B: pairwise judge, swap, κ, bias report |
+| {{Họ tên anhtri04}} | [@anhtri04](https://github.com/anhtri04) | Phase C: Presidio, NeMo rails, latency, blueprint |
 
-**Điểm:** 100 điểm bắt buộc + tối đa 10 bonus cho bài lab.
+Chi tiết đóng góp từng người: [doc/TEAM.md](doc/TEAM.md). Đề bài gốc:
+[doc/ASSIGNMENT.md](doc/ASSIGNMENT.md), rubric: [doc/RUBRIC.md](doc/RUBRIC.md).
 
-**Repo đề bài:** [K4-Track-3B-Day24-Eval-Guard](https://github.com/VinUni-AI20k/K4-Track-3B-Day24-Eval-Guard).
-Repo bài nộp nhóm: `K4-L3-DAY24-TenNhom-Eval-Guard`.
+## Kiến trúc
 
-## Cấu trúc repo
-
-- `src/`: hàm bài tập TODO và phần hỗ trợ.
-- `scripts/`: setup, runner và checker; chạy từ gốc repo.
-- `fixtures/`: bộ câu hỏi và dữ liệu kiểm thử được cấp sẵn.
-- `data/`: tài liệu nguồn cho RAG.
-- `doc/`: đề bài, hướng dẫn, TEAM và mẫu báo cáo.
-- `requirements/`: dependencies và constraints.
-- `infra/`: Docker Compose; `guardrails/`: cấu hình guard.
-- `tests/`: tests offline và integration tùy chọn.
-- `artifacts/`: kết quả nhóm tự tạo sau khi làm bài.
-
-## Mục tiêu và nơi viết kết quả
-
-Nhóm đánh giá đầu ra pipeline RAG, kiểm tra độ tin cậy của LLM Judge và xây guard
-cho input/output. Starter có các hàm TODO để học viên làm; runner, xuất JSON,
-thống kê percentile và checker là phần hỗ trợ đã cung cấp.
-
-**Trạng thái khi tải về:** chưa có bài làm, thông tin nhóm hay kết quả thực
-nghiệm. Các hàm bài tập còn TODO; `doc/TEAM.md` và ba báo cáo là mẫu chưa điền;
-`artifacts/` chỉ có `.gitkeep`. Nhóm tự tạo `artifacts/answers_50q.json` và ba JSON kết quả
-sau khi chuẩn bị và hoàn thành bài. Các file `fixtures/test_set_50q.json`,
-`fixtures/human_labels_10q.json`, `fixtures/adversarial_set_20.json`, `fixtures/clean_set_8.json` và
-`fixtures/output_set_4.json` là dữ liệu đề bài được cấp sẵn, không phải kết quả đã chạy.
-
-Dùng **`artifacts/` cho dữ liệu kết quả JSON** và **`doc/reports/` cho báo cáo
-Markdown**. Đóng góp cá nhân nằm ở `doc/TEAM.md`, không viết thay cho phân tích kỹ
-thuật. File sinh tự động vẫn phải commit vào repo bài nộp sau khi kiểm tra secrets.
-
-| Nội dung | Đường dẫn từ gốc repo | Người phụ trách | Cách tạo |
-|---|---|---|---|
-| Thành viên, công việc, điều đã học | `doc/TEAM.md` | Từng người, trưởng nhóm đối chiếu | Điền tay |
-| Answers và contexts của pipeline | `artifacts/answers_50q.json` | Người tích hợp pipeline | `scripts/setup_answers.py --live` |
-| RAGAS từng câu, bottom 10, cluster | `artifacts/ragas_50q.json` | Phase A | Runner tự lưu kết quả thật |
-| Phân tích lỗi và hướng sửa | `doc/reports/failure_clusters.md` | Phase A | Điền tay từ JSON |
-| Pairwise, nhãn 0/1, κ, bias | `artifacts/judge_results.json` | Phase B | Runner tự lưu kết quả thật |
-| Diễn giải κ và bias | `doc/reports/bias_report.md` | Phase B | Điền tay từ JSON |
-| 20 attacks, 8 clean inputs, output, latency | `artifacts/guard_results.json` | Phase C | Runner tự lưu kết quả thật |
-| Kiến trúc, CI gates, monitoring | `doc/reports/blueprint.md` | Cả nhóm, người tích hợp | Điền tay; đề xuất CI/CD |
-
-Đọc [đề bài](doc/ASSIGNMENT.md), [checkpoints](doc/CHECKPOINTS.md),
-[rubric](doc/RUBRIC.md), [quy định](doc/RULES.md) và [nộp bài](doc/SUBMISSION.md).
-Giao diện mã bài trước nằm trong [PIPELINE_INTERFACE.md](doc/PIPELINE_INTERFACE.md);
-schema và cách chạy nằm trong [REPORT_SCHEMAS.md](doc/REPORT_SCHEMAS.md).
-
-## Chuẩn bị trước buổi học
-
-Môi trường mục tiêu là **Python 3.11**. Dùng `requirements/requirements-test.lock.txt` cho
-unit tests offline và `requirements/requirements.txt` cùng `requirements/constraints-core.txt` cho full
-runtime. NeMo/Annoy cần compiler C++ trên Windows. Nhóm phải kiểm tra cài đặt,
-imports và model trên máy của mình theo [ENVIRONMENT.md](doc/ENVIRONMENT.md).
-
-1. Làm theo [ENVIRONMENT.md](doc/ENVIRONMENT.md), chuẩn bị compiler, Docker và
-   dependencies trước buổi học. Windows có thể chạy trực tiếp Python trong
-   virtualenv nếu PowerShell không cho kích hoạt; không cần đổi policy toàn máy.
-2. Đưa năm module `m1`–`m5` từ bài RAG trước vào `src/`, đối chiếu bảng giao
-   diện. `pipeline.py` có thể giữ làm tham khảo; setup **không gọi file này**.
-3. Tải spaCy và model embedding/rerank, khởi động Qdrant đã pin
-   `qdrant/qdrant:v1.9.7`; kiểm tra key trong `.env`.
-4. Từ gốc repo, sinh answers trước buổi học:
-
-```bash
-python scripts/setup_answers.py --live
+```text
+User input ─► Presidio PII (CCCD/CMND, SĐT VN, email) ─► NeMo self-check input
+          ─► RAG (BM25 + BGE-M3 dense → RRF → bge-reranker-v2-m3 top-3 → gpt-4o-mini)
+          ─► NeMo self-check output ─► response
 ```
 
-Đầu ra cần 50 bản ghi thuộc 20 factual, 20 multi_hop, 10 adversarial. Mỗi bản ghi
-có answer, contexts và ground_truth riêng biệt; `generation_mode` ghi rõ LLM hay
-extractive fallback, `generation_model` là ID model hoặc null với fallback.
-Không dùng ground truth thay answer để tạo điểm đẹp. Task 2 trả RagasEvaluation
-với evaluator_models từ m4; metadata phiên bản 2 tách model theo từng vai trò.
+Đánh giá chạy ngoài luồng request:
 
-## Kiểm tra trên lớp và chạy thực nghiệm
+- **Phase A** — RAGAS 4 metric (faithfulness, answer_relevancy, context_precision,
+  context_recall) trên 50 câu (20 factual / 20 multi_hop / 10 adversarial),
+  bottom-10 có chẩn đoán, matrix worst_metric × distribution.
+- **Phase B** — pairwise judge có reference, chạy 2 lượt đổi vị trí A/B
+  (swap-and-average), 10 nhãn nhị phân trên `model_answer` gốc → Cohen's κ với nhãn người.
+- **Phase C** — 20 attacks + 8 câu sạch qua Presidio → NeMo input, 4 output case
+  qua NeMo output, đo latency input layers (2 warm-up thật + ≥20 mẫu, percentile tuyến tính).
 
-Trong 15 phút đầu, xác nhận virtualenv, Qdrant, module/interface và 50 answers
-đã sẵn sàng; điền thành viên/phân công. Cài đặt cold-cache hoặc tải model chưa
-xong là việc chuẩn bị còn thiếu, không giả định sẽ hoàn tất trong mốc 15 phút.
+## Cấu trúc mã
 
-1. Hoàn thành các hàm TODO theo ba phase. Tests mặc định dùng mock, không gọi
-   API, không tải spaCy/model. Khi chưa implement, student tests phải fail.
-2. Chạy unit tests; dùng `-m support` khi chỉ kiểm tra phần scaffold cung cấp:
+| File | Nội dung |
+|---|---|
+| `src/m1_chunking.py` … `src/m5_enrichment.py` | Pipeline RAG Day 18 (hierarchical chunking, hybrid search, rerank, RAGAS, enrichment) |
+| `src/m4_eval.py` | Adapter RAGAS: trả `metadata.evaluator_models`, chấm lại câu bị NaN thay vì gán 0 |
+| `src/phase_a_ragas.py` | Tasks 1–4: group, run RAGAS, bottom-10, cluster analysis |
+| `src/phase_b_judge.py` | Tasks 5–8: pairwise judge, swap-and-average, Cohen's κ, bias report |
+| `src/phase_c_guard.py` | Tasks 9a–12: PII scan, input/output rail, adversarial suite, P95 latency |
+| `guardrails/` | Cấu hình NeMo 0.10 (Colang 1.0, self-check prompts) |
+| `artifacts/` | JSON kết quả thật; `doc/reports/` báo cáo phân tích |
+
+Một số quyết định thiết kế:
+
+- **PII chỉ chặn theo loại định danh** (`VN_CCCD`, `VN_PHONE`, `EMAIL_ADDRESS`,
+  `PHONE_NUMBER`, `CREDIT_CARD`, `IBAN_CODE`). NER tiếng Anh của spaCy gắn nhãn
+  PERSON/LOCATION sai trên câu tiếng Việt, nếu dùng sẽ chặn nhầm clean controls.
+- **Quyết định block đọc từ `result.log.activated_rails[*].stop`** của NeMo,
+  không đoán từ chữ "xin lỗi/không thể" (clean input #102 chứa đúng cụm này).
+- **Pairwise prompt ưu tiên độ chính xác theo reference**, ghi rõ độ dài và vị
+  trí không phải tiêu chí; JSON được validate (winner, reasoning, scores ∈ [0,1]).
+- **m4 không thay NaN bằng 0**: chấm lại tối đa 3 lượt, vẫn NaN thì báo lỗi.
+
+## Chạy lại
+
+Python 3.11, Docker. Từ gốc repo:
+
+```bash
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -r requirements/requirements.txt -c requirements/constraints-core.txt
+python -m spacy download en_core_web_lg
+cp .env.example .env   # điền OPENAI_API_KEY
+docker compose -f infra/docker-compose.yml up -d
+```
+
+Tests offline (không gọi API, không cần model):
 
 ```bash
 python -m pytest tests/ -q
-python -m pytest tests/ -m support -q
 ```
 
-3. Sau khi implement, chạy một batch thực nghiệm thật. `--live` xác nhận dùng
-   API và mạng; có chi phí. Runner không tạo báo cáo hợp lệ từ TODO còn nguyên.
+Thực nghiệm thật (gọi OpenAI, có chi phí):
 
 ```bash
+python scripts/setup_answers.py --live
 python scripts/run_experiments.py --phase a --live
 python scripts/run_experiments.py --phase b --live
 python scripts/run_experiments.py --phase c --live --latency-samples 20
-```
-
-Phase B dùng đúng `model_answer` của 10 bản ghi human labels cho nhãn 0/1; không
-dùng answer pipeline mới và không gửi human_label/human_note vào judge.
-Phase C đòi **ít nhất 15/20 attacks**, kiểm tra **8/8 câu sạch được allowed**,
-và kiểm tra output. Bonus giữ mốc **18/20 attacks**, kèm clean controls đạt.
-
-4. Điền ba báo cáo Markdown và TEAM, rồi kiểm tra bằng chứng đã lưu:
-
-```bash
 python scripts/check_lab.py
 ```
 
-Checker mặc định không chạy pytest lại và không gọi API. Nếu muốn gộp unit tests
-với kiểm tra bài nộp, chỉ chạy `python scripts/check_lab.py --with-tests`.
-Checker validate Answers/Phase A/B/C bằng JSON Schema trước khi đối chiếu nguồn
-và phép tính; thiếu/sai generation_mode, pair_sources hoặc metadata đều bị từ chối.
-Ở bản starter, student tests và checker phải báo chưa hoàn thành do còn TODO,
-thiếu answers/kết quả và chưa điền templates.
-Integration tests là lựa chọn thay cho chạy batch B/C riêng, không chạy cả hai
-để tránh trả phí hai lần: `python -m pytest -m integration --run-live`.
+## Kết quả
 
-Trưởng nhóm nộp một link repo theo kênh coach công bố. Deadline mặc định là
-**11:59 AM (13/10/2026), Asia/Ho_Chi_Minh (UTC+07:00)**; áp dụng điều chỉnh của
-key coach trong 48 giờ sau lab theo quy ước chung. Blueprint là đề xuất CI/CD,
-không mặc nhiên là workflow đã chạy.
+Chưa có — các artifact được sinh khi chạy thực nghiệm thật ở trên; số liệu sẽ
+được cập nhật ở đây và trong `doc/reports/` từ `artifacts/*.json`.
