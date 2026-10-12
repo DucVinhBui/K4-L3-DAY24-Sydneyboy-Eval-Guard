@@ -143,29 +143,21 @@ def swap_and_average(question: str, answer_a: str, answer_b: str, reference: str
 def cohen_kappa(judge_labels: list[int], human_labels: list[int]) -> float:
     """Task 7: Tính Cohen's κ giữa LLM judge và human labels.
 
-    Args:
-        judge_labels:  nhãn từ LLM judge (0 = bad answer, 1 = good answer)
-        human_labels:  nhãn từ human_labels_10q.json
-
-    Returns:
-        κ ∈ [-1, 1]
-        Thang đo Landis-Koch: <0=poor, 0-0.2=slight, 0.2-0.4=fair,
-                               0.4-0.6=moderate, 0.6-0.8=substantial, 0.8-1=almost perfect
-
-    Gợi ý A — dùng scikit-learn:
-        from sklearn.metrics import cohen_kappa_score
-        return cohen_kappa_score(human_labels, judge_labels)
-
-    Gợi ý B — tính tay:
-        n = len(judge_labels)
-        p_o = sum(j == h for j, h in zip(judge_labels, human_labels)) / n
-        p_e = (judge_labels.count(1)/n * human_labels.count(1)/n +
-               judge_labels.count(0)/n * human_labels.count(0)/n)
-        κ = (p_o - p_e) / (1 - p_e) if p_e != 1 else 0
-        return κ
+    κ = (p_o - p_e) / (1 - p_e), với p_o là tỷ lệ đồng ý quan sát và p_e là
+    tỷ lệ đồng ý ngẫu nhiên từ phân bố biên của hai người gán nhãn.
+    Thang Landis-Koch: <0=poor, 0-0.2=slight, 0.2-0.4=fair,
+    0.4-0.6=moderate, 0.6-0.8=substantial, 0.8-1=almost perfect.
     """
-    # TODO: Implement
-    return 0.0
+    if len(judge_labels) != len(human_labels) or not judge_labels:
+        raise ValueError("judge_labels and human_labels must be non-empty and aligned")
+    labels = sorted(set(judge_labels) | set(human_labels))
+    n = len(judge_labels)
+    p_o = sum(j == h for j, h in zip(judge_labels, human_labels)) / n
+    p_e = sum((judge_labels.count(c) / n) * (human_labels.count(c) / n) for c in labels)
+    if p_e == 1:
+        # Cả hai cùng gán một nhãn duy nhất: κ không xác định; đồng ý hoàn toàn → 1.
+        return 1.0 if p_o == 1 else 0.0
+    return (p_o - p_e) / (1 - p_e)
 
 
 # ─── Task 8: Bias Report ──────────────────────────────────────────────────────
