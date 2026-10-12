@@ -8,7 +8,7 @@ Trưởng nhóm/người nộp: Bùi Đức Vinh — 2A202602801
 
 Ngày lab/deadline áp dụng: lab ngày 2026-10-12; deadline theo thông báo lớp — Asia/Ho_Chi_Minh (UTC+07:00)
 
-Commit dùng để chấm: COMMIT_SHA_PENDING
+Commit dùng để chấm: `979d2a3` (nội dung bài hoàn chỉnh; commit ngay sau chỉ ghi SHA này vào TEAM.md)
 
 Mỗi nhóm nộp một repo. Điền đủ thành viên và một mục INDIVIDUAL cho từng người.
 
@@ -97,5 +97,4 @@ gọi gpt-4o-mini), không chỉ pip resolve: bằng chứng là `artifacts/guar
 
 ## Cập nhật sau khi nộp
 
-{{Ghi phiên bản nộp; nếu sửa sau deadline, ghi commit/thời điểm/lý do và thông báo
-coach cho phép áp dụng bản cập nhật. Nếu không có cập nhật, ghi rõ không có.}}
+Không có cập nhật sau khi nộp. Phiên bản nộp là commit ghi ở mục "Commit dùng để chấm" trên nhánh `main`.
