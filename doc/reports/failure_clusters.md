@@ -78,17 +78,61 @@ faithfulness với câu hỏi cần tính toán, không phải lỗi model.
 
 ## Matrix và nhóm yếu nhất
 
-{{Điền matrix 4 metric × 3 distributions. Mỗi câu được đếm theo worst_metric,
-không coi mọi câu là failure.}}
+Mỗi câu được đếm đúng một lần, theo worst_metric của nó (kể cả câu có điểm cao); đây là
+phân bố metric yếu nhất, không phải số failure.
 
-Nhóm yếu theo mean thấp nhất: {{distribution}}; mean: {{giá trị}}.
-Worst metric xuất hiện nhiều nhất: {{metric}}; số câu: {{số lượng}}.
+| worst_metric | factual | multi_hop | adversarial | Tổng |
+|---|---|---|---|---|
+| faithfulness | 5 | 10 | 1 | 16 |
+| answer_relevancy | 12 | 10 | 5 | 27 |
+| context_precision | 1 | 0 | 1 | 2 |
+| context_recall | 2 | 0 | 3 | 5 |
+| Tổng | 20 | 20 | 10 | 50 |
 
-{{Giải thích vì sao nhóm đó yếu. Không dùng tổng 20/20/10 chọn dominant distribution.
-Đề xuất sửa cụ thể và cách chạy lại để biết sửa có hiệu quả.}}
+Nhóm yếu theo mean thấp nhất: multi_hop; mean: 0.6467.
+Worst metric xuất hiện nhiều nhất: answer_relevancy; số câu: 27.
+
+Multi_hop yếu vì cần ghép ≥2 tài liệu nhưng pipeline chỉ đưa top-3 chunk sau rerank vào
+prompt: khi hai chunk cùng thuộc một tài liệu, nửa thông tin còn lại bị thiếu (q21, q30), và
+model chọn từ chối toàn bộ (q22, q33, q39) thay vì trả lời phần đã có. 10/20 câu multi_hop có
+worst_metric là faithfulness, phần lớn do câu từ chối hoặc phép tính suy luận như q31.
+Answer_relevancy là worst_metric phổ biến nhất ở cả ba nhóm vì RAGAS sinh câu hỏi ngược từ
+answer: answer ngắn, có câu rào đón hoặc nhắc thêm chính sách cũ thì cosine với câu hỏi gốc thấp.
+
+Đề xuất sửa và cách kiểm chứng:
+
+1. Bỏ quy tắc "chỉ nói 'Không tìm thấy.'"; yêu cầu trả lời phần có trong context và nói rõ phần
+   nào thiếu. Chạy lại 8 câu từ chối (5, 6, 9, 22, 33, 39, 48, 50); kỳ vọng faithfulness và
+   answer_relevancy của nhóm này tăng từ 0.125/0.000.
+2. Với multi_hop, tăng số chunk vào prompt từ 3 lên 5 hoặc đa dạng hoá theo `source` (tối đa
+   2 chunk mỗi tài liệu). Đo lại context_recall multi_hop (hiện 0.767) và avg_score (0.647).
+3. Đặt dòng enrichment sau nội dung chunk (hoặc chỉ dùng khi index) để con số quy định nằm
+   đầu context. Kiểm tra q9 phải trả đúng 5 ngày.
+4. Sau mỗi thay đổi, chạy `python scripts/setup_answers.py --live` rồi
+   `python scripts/run_experiments.py --phase a --live`, so sánh bảng distribution và matrix
+   với run 2026-10-12T10:20:28Z; chỉ giữ thay đổi nếu multi_hop tăng mà factual không giảm.
 
 ## Bẫy adversarial và giới hạn
 
-{{So sánh với factual/multi_hop, nêu version conflict/negation trong bottom 10.
-Điểm thấp hơn không tự chứng minh pipeline đã nhận ra bẫy. Ghi giới hạn số mẫu,
-model và fallback nếu có.}}
+Adversarial (0.752) thấp hơn factual (0.763) nhưng cao hơn multi_hop (0.647). Khoảng cách với
+factual chỉ 0.011, nên không thể kết luận pipeline "bị bẫy" hay "nhận ra bẫy" chỉ từ điểm mean.
+Đọc từng answer adversarial:
+
+- **Version conflict được xử lý đúng ở phần lớn câu:** q41 trả 15 ngày (v2024, không phải 12 của
+  v2023), q43 trả 12 ký tự (v2.0, không phải 8 của v1.0), q45 nói MFA bắt buộc (v2.0). Faithfulness 1.0
+  nhưng answer_relevancy chỉ 0.51–0.68 vì answer ngắn, không nhắc lý do bản cũ bị thay.
+- **q49 nêu chính sách cũ trước:** answer mở đầu bằng "theo chính sách cũ (v2023) … 12 ngày" rồi chỉ
+  nói bản 2024 đang hiệu lực mà không nêu con số 15 ngày. Context_recall 0.67, rủi ro người đọc lấy nhầm
+  con số cũ dù faithfulness = 1.0.
+- **q50 (phủ định/mâu thuẫn chính sách) nằm trong bottom 10:** reference là "KHÔNG, chính sách VPN cấm
+  VPN cá nhân". Chunk top-1 có nguyên văn quy định "Không sử dụng VPN cá nhân (NordVPN, ExpressVPN)
+  trong mạng công ty", nhưng model trả "Không tìm thấy.". Câu hỏi viết theo dạng gợi ý ("để tăng bảo
+  mật thêm") khiến model không nhận ra quy định cấm chính là câu trả lời. Không sai về an toàn nhưng bỏ
+  lỡ câu phủ định có sẵn trong context — cùng cơ chế từ chối quá mức ở nhóm lỗi 1.
+- Context_recall adversarial thấp nhất (0.683) và là worst_metric của 3/10 câu: rerank top-3 thường lấy cả
+  bản cũ lẫn bản mới, chiếm chỗ của đoạn giải thích cần cho reference.
+
+Giới hạn: chỉ 50 câu (10 adversarial) và một lần chạy; evaluator cũng là gpt-4o-mini (cùng họ với
+generator) nên có thể thiên vị cách diễn đạt của chính nó; RAGAS chấm câu từ chối bằng 0 dù câu từ chối
+an toàn trong một số trường hợp; answer_relevancy phụ thuộc embedding `text-embedding-3-small` trên tiếng
+Việt. Mọi chênh lệch dưới ~0.05 giữa các distribution nên coi là nhiễu cho đến khi chạy lặp nhiều lần.
