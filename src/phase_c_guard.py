@@ -100,6 +100,21 @@ def setup_nemo_rails():
     return rails
 
 
+def _rail_stopped(result) -> bool:
+    """Quyết định block lấy từ log của NeMo (rail nào đã dừng flow), không đoán từ text."""
+    activated = getattr(getattr(result, "log", None), "activated_rails", None)
+    if activated is None:
+        raise ValueError("NeMo result has no activated_rails log; pass options.log.activated_rails")
+    return any(getattr(rail, "stop", False) for rail in activated)
+
+
+def _response_text(result) -> str:
+    response = result.response
+    if isinstance(response, list):
+        return response[-1].get("content", "") if response else ""
+    return str(response or "")
+
+
 async def check_input_rail(text: str, rails=None) -> dict:
     """Task 9b: Kiểm tra input qua NeMo input rails (topic guard + jailbreak guard).
 
