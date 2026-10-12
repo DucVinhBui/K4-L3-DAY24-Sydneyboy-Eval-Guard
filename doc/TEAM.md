@@ -59,6 +59,24 @@ gọi gpt-4o-mini), không chỉ pip resolve: bằng chứng là `artifacts/guar
 - Nguồn/AI hỗ trợ nếu có: dùng Claude Code (Anthropic) để hỗ trợ viết code, chạy lệnh và soạn báo cáo; tự kiểm
   chứng bằng unit test, chạy live và đọc lại từng answer/context của bottom 10 trước khi viết kết luận.
 
+### DoPhucHung-2A202602762
+
+- Phần được giao và phần thực tế đã làm: Phase B trong `src/phase_b_judge.py` — prompt pairwise có reference ưu tiên
+  độ chính xác, ghi rõ độ dài/vị trí không phải tiêu chí (`PAIRWISE_SYSTEM_PROMPT`, `PAIRWISE_PROMPT_TEMPLATE`);
+  validate JSON (`_parse_pairwise`); `pairwise_judge` qua OpenAI JSON mode, temperature 0; `swap_and_average` quy đổi
+  winner lượt 2 về A/B gốc; `cohen_kappa` tính p_o/p_e thủ công; `bias_report` đếm position/verbosity; viết
+  `doc/reports/bias_report.md`.
+- Bằng chứng: commits của @huwungG (feat(phase-b) Tasks 5–8, data(phase-b), docs(bias)); `artifacts/judge_results.json`.
+- Cách kiểm tra: unit mock `python -m pytest tests/ -q`; live `python scripts/run_experiments.py --phase b --live`
+  (run 2026-10-12T10:18:49Z): 5 cặp, position bias 2/5, verbosity 0.667 trên 3 case decisive, κ = 1.0 trên 10 nhãn.
+- Điều đã học: judge một lượt không đáng tin — q5 (cả hai answer đều sai) đổi winner theo vị trí, nên bắt buộc
+  swap-and-average và coi cặp không nhất quán là tie. Verbosity rate cao chưa chứng minh bias: winner dài hơn ở q1/q41
+  cũng là answer đúng hơn. Cohen's κ cần tính chance agreement, không chỉ % trùng.
+- Giới hạn/cách xử lý: chỉ 5 cặp và 10 nhãn; judge cùng họ với generator; reasoning có lúc không khớp answer (q12).
+  Đề xuất thêm quy tắc "cả hai sai → tie" và mở rộng nhãn human, ghi trong bias_report.md.
+- Nguồn/AI hỗ trợ nếu có: dùng Claude Code (Anthropic) trên workspace chung để hỗ trợ viết code và báo cáo; tự kiểm
+  chứng bằng cách đọc lại reasoning hai lượt của từng cặp và tính lại κ bằng tay (p_o = 1.00, p_e = 0.52).
+
 ## Cập nhật sau khi nộp
 
 {{Ghi phiên bản nộp; nếu sửa sau deadline, ghi commit/thời điểm/lý do và thông báo
