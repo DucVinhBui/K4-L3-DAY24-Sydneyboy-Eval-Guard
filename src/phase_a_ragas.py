@@ -129,42 +129,47 @@ def group_by_distribution(test_set: list[dict]) -> dict[str, list[dict]]:
 def run_ragas_50q(answers: list[dict]) -> RagasEvaluation:
     """Task 2: Chạy RAGAS 4 metrics trên toàn bộ 50 câu hỏi.
 
-    Gợi ý — import từ Day 18 của bạn:
-        from src.m4_eval import evaluate_ragas
-
-    Steps:
-        1. Extract questions, answers, contexts, ground_truths từ answers list
-        2. Gọi evaluate_ragas() từ m4_eval.py
-        3. Kết hợp kết quả với distribution info từ answers list
-        4. Return RagasEvaluation(results, raw["metadata"]["evaluator_models"])
-           m4 must report its actual LLM/embedding models; never guess JUDGE_MODEL.
+    Gọi m4.evaluate_ragas() một lần cho cả 50 câu, ghép lại theo thứ tự với
+    id/distribution của answers. Model IDs lấy từ metadata m4, không đoán.
     """
-    # TODO: Implement
-    # try:
-    #     from src.m4_eval import evaluate_ragas
-    # except ImportError:
-    #     print("⚠️  Không tìm thấy src/m4_eval.py — đã copy từ Day 18 chưa?")
-    #     raise ValueError("Missing m4 evaluator; cannot declare its actual models")
-    #
-    # questions     = [a["question"]    for a in answers]
-    # ans_texts     = [a["answer"]      for a in answers]
-    # contexts      = [a["contexts"]    for a in answers]
-    # ground_truths = [a["ground_truth"] for a in answers]
-    #
-    # raw = evaluate_ragas(questions, ans_texts, contexts, ground_truths)
-    # per_q = raw.get("per_question", [])
-    #
-    # results = []
-    # for a, pq in zip(answers, per_q):
-    #     results.append(RagasResult(
-    #         question_id=a["id"], distribution=a["distribution"],
-    #         question=a["question"], answer=a["answer"],
-    #         contexts=a["contexts"], ground_truth=a["ground_truth"],
-    #         faithfulness=float(pq.faithfulness), answer_relevancy=float(pq.answer_relevancy),
-    #         context_precision=float(pq.context_precision), context_recall=float(pq.context_recall),
-    #     ))
-    # return RagasEvaluation(results, raw["metadata"]["evaluator_models"])
-    return RagasEvaluation([], [])
+    try:
+        from src.m4_eval import evaluate_ragas
+    except ImportError as e:
+        raise ValueError("Missing src/m4_eval.py; cannot declare its actual models") from e
+
+    questions     = [a["question"]     for a in answers]
+    ans_texts     = [a["answer"]       for a in answers]
+    contexts      = [list(a["contexts"]) for a in answers]
+    ground_truths = [a["ground_truth"] for a in answers]
+
+    raw = evaluate_ragas(questions, ans_texts, contexts, ground_truths)
+    per_q = list(raw.get("per_question", []))
+    if len(per_q) != len(answers):
+        raise ValueError(f"m4 returned {len(per_q)} rows for {len(answers)} answers")
+    evaluator_models = list((raw.get("metadata") or {}).get("evaluator_models") or [])
+    if not evaluator_models:
+        raise ValueError("m4 metadata.evaluator_models is missing")
+
+    def metric(record, name: str) -> float:
+        value = record[name] if isinstance(record, dict) else getattr(record, name)
+        value = float(value)  # NumPy/Pandas scalar → Python float
+        if not (0.0 <= value <= 1.0):  # also rejects NaN
+            raise ValueError(f"{name}={value!r} is not a finite score in [0, 1]")
+        return value
+
+    results = [
+        RagasResult(
+            question_id=a["id"], distribution=a["distribution"],
+            question=a["question"], answer=a["answer"],
+            contexts=list(a["contexts"]), ground_truth=a["ground_truth"],
+            faithfulness=metric(pq, "faithfulness"),
+            answer_relevancy=metric(pq, "answer_relevancy"),
+            context_precision=metric(pq, "context_precision"),
+            context_recall=metric(pq, "context_recall"),
+        )
+        for a, pq in zip(answers, per_q)
+    ]
+    return RagasEvaluation(results, evaluator_models)
 
 
 def bottom_10(results: list[RagasResult]) -> list[dict]:
