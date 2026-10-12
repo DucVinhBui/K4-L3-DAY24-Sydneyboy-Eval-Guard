@@ -39,21 +39,31 @@ Bắt buộc Task 12: **input_layers_sequential**, Presidio + NeMo input, không
 short-circuit. Engines tạo trước đo; có hai warm-up thật không tính vào mẫu.
 Percentile nội suy tuyến tính từ raw samples; tổng từ tổng từng sample.
 
-Số mẫu timed: {{n_samples}}; warm-up: {{warmup_runs}};
-phương pháp: {{percentile_method}}.
+Số mẫu timed: 20; warm-up: 2;
+phương pháp: linear (nội suy tuyến tính trên raw samples, `time.perf_counter`).
 
 | Layer / scope | P50 ms | P95 ms | P99 ms | Tình trạng |
 |---|---|---|---|---|
-| Presidio | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
-| NeMo input | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
-| Input guard sequential | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
+| Presidio | 9.04 | 10.95 | 11.25 | Đã đo Task 12, rất nhanh (local) |
+| NeMo input | 727.12 | 885.09 | 959.05 | Đã đo Task 12, chiếm ~99% thời gian |
+| Input guard sequential | 736.42 | 893.53 | 967.98 | Đã đo Task 12, vượt target 500ms |
 | RAG | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
 | NeMo output | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
 | Full guard / short-circuit request | chưa đo | chưa đo | chưa đo | Không suy từ input_guard_ms |
 
-Input-layer budget target: 500ms; kết quả thực tế/budget_ok: {{giá trị và bool}}.
-{{Nêu bottleneck nếu vượt target. Nếu chưa đo các phần ngoài phạm vi, giữ “chưa đo”
-và nêu kế hoạch lấy mẫu/warm-up/timestamps; nếu đã đo thì thay bằng số và phương pháp.}}
+Input-layer budget target: 500ms; kết quả thực tế/budget_ok: P95 893.53ms, `latency_budget_ok = false`.
+Bottleneck là NeMo input: mỗi lần kiểm tra là một lượt gọi gpt-4o-mini qua mạng (P50 727ms), còn
+Presidio chỉ ~9ms. Hướng giảm: cache quyết định cho câu hỏi lặp lại, dùng classifier nhỏ chạy local
+(hoặc embedding similarity với tập jailbreak đã biết) để chỉ gọi LLM với câu không chắc chắn, hoặc
+chạy NeMo input song song với retrieval và huỷ RAG nếu bị chặn.
+
+Lịch sử chạy: run 1 (prompt self-check gốc) NeMo input P95 790.8ms, input guard P95 799.8ms; run cuối
+(prompt chi tiết hơn, temperature 0) P95 885.09/893.53ms. Prompt dài hơn làm tăng ~95ms ở P95, đổi lại
+sửa được 3 lỗi phân loại (xem phần Monitoring).
+
+Kế hoạch đo phần chưa đo: chạy end-to-end 50 câu test set + 20 attacks với 2 warm-up, ghi timestamp
+`t_presidio`, `t_nemo_in`, `t_rag`, `t_nemo_out` cho mỗi request; báo P50/P95/P99 riêng cho request
+bị chặn sớm và request đi hết luồng, không cộng percentile của từng tầng.
 
 ## CI gates đề xuất
 
